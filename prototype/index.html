@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DND2 Web App Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .grid-tile {
+      width: 50px;
+      height: 50px;
+      transition: all 0.15s ease-in-out;
+    }
+    .bg-map-plains {
+      background-image: url('assets/maps/plains.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-mountain {
+      background-image: url('assets/maps/mountain.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-dungeon {
+      background-image: url('assets/maps/dungeon.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-boss {
+      background-image: url('assets/maps/boss.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-6 font-sans">
+  <div class="max-w-6xl mx-auto space-y-5">
+
+    <!-- Header & Lobby Bar -->
+    <header class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between shadow-lg">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-500 to-red-500 flex items-center justify-center font-black text-xl text-black shadow-md">
+          D2
+        </div>
+        <div>
+          <h1 class="font-bold text-lg text-white tracking-wide">DND2 Multiverse Assistant</h1>
+          <p class="text-xs text-slate-400">Session Lobby: <span class="text-amber-400 font-mono font-semibold">#MV-7749</span> • Role: <span class="text-emerald-400 font-semibold">DM & Player Preview</span></p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex gap-2">
+        <button id="tab-combat" onclick="switchTab('combat')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow">
+          ⚔️ Tactical Grid (5 Layouts)
+        </button>
+        <button id="tab-creator" onclick="switchTab('creator')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">
+          👤 Character Creator
+        </button>
+        <button id="tab-dm" onclick="switchTab('dm')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">
+          👑 DM Encounter Panel
+        </button>
+      </nav>
+
+      <!-- Connected Players -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-400">Players:</span>
+        <div class="flex -space-x-2">
+          <div class="w-7 h-7 rounded-full bg-orange-600 border border-slate-900 flex items-center justify-center text-xs font-bold" title="Player 1: Goku">G</div>
+          <div class="w-7 h-7 rounded-full bg-yellow-500 border border-slate-900 flex items-center justify-center text-xs font-bold text-black" title="Player 2: SpongeBob">S</div>
+          <div class="w-7 h-7 rounded-full bg-blue-600 border border-slate-900 flex items-center justify-center text-xs font-bold" title="Player 3: Obama">O</div>
+          <div class="w-7 h-7 rounded-full bg-purple-600 border border-slate-900 flex items-center justify-center text-xs font-bold" title="Player 4: Original Char">C</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- TAB 1: TACTICAL COMBAT VIEW -->
+    <div id="view-combat" class="space-y-4">
+      
+      <!-- 5 Battlefield Layout Switcher Bar -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">🗺️ Select Battlefield Layout:</span>
+        <div class="flex flex-wrap gap-1.5">
+          <button id="preset-plains" onclick="loadPreset('plains')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            🌾 Plains (10x10 Flat)
+          </button>
+          <button id="preset-mountain" onclick="loadPreset('mountain')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            ⛰️ Mountainous (Spires & Range+)
+          </button>
+          <button id="preset-dungeon" onclick="loadPreset('dungeon')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow">
+            🏰 Dungeon (10x10 Walls & Traps)
+          </button>
+          <button id="preset-small_dungeon" onclick="loadPreset('small_dungeon')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            🗝️ Small Dungeon (6x6 Cramped)
+          </button>
+          <button id="preset-boss" onclick="loadPreset('boss')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            💀 Boss Room (8x8 Pillar Cover)
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Battlefield Grid + Right Action Panel -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 2D Battlefield Grid Canvas (8 cols) -->
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col items-center">
+          
+          <!-- Map Info & Legend -->
+          <div class="w-full flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mb-3 pb-2 border-b border-slate-800">
+            <div>
+              <span id="map-title" class="font-bold text-white text-sm">🏰 Standard Dungeon Room (10x10)</span>
+              <p id="map-desc" class="text-xs text-slate-400">Features breakable walls (1 Main Action to smash), obstacles, and spike traps.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-xs">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-cyan-400/40 border border-cyan-300 rounded"></span> Move</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-stone-900 border border-amber-500 rounded"></span> 🧱 Breakable</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-orange-950 border border-orange-500 rounded"></span> ⚠️ Trap</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-slate-700 border border-cyan-200 rounded"></span> 🏛️ Pillar</span>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div class="w-full mb-3 px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
+            <span id="grid-instruction" class="text-cyan-300 font-medium">
+              👆 Click <b>GK</b> to toggle movement highlights, then click any glowing cyan tile to move!
+            </span>
+            <span id="high-ground-badge" class="font-mono text-slate-400">
+              Elevation: <b class="text-white">H0 (Ground)</b> • Bonus Range: <b class="text-slate-400">+0</b>
+            </span>
+          </div>
+
+          <!-- The Interactive Grid with Generated Background Artwork -->
+          <div id="battle-grid-wrapper" class="p-2.5 rounded-xl border-2 border-slate-700 shadow-2xl bg-map-dungeon relative">
+            <div class="inline-grid gap-0.5 bg-black/25 p-1 rounded-lg select-none" id="battle-grid" style="grid-template-columns: repeat(10, minmax(0, 1fr));">
+              <!-- Grid generated by JS -->
+            </div>
+          </div>
+
+          <!-- Interactive Demo Controls -->
+          <div class="mt-4 w-full flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            <div>💡 Click <b>🧱 Walls</b> to break them, or move onto <b>H1/H2/H3 Spires</b> for High Ground Range!</div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="toggleBossBlast()" id="btn-boss-blast" class="hidden px-3 py-1.5 bg-rose-900/80 hover:bg-rose-800 text-rose-100 rounded border border-rose-500 text-xs font-bold animate-pulse">
+                ☄️ Toggle Boss Unblockable Blast (Hide Behind Pillars!)
+              </button>
+              <button onclick="toggleAoEPreview()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs font-medium">
+                💥 Toggle 3x3 AoE Preview
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Active Unit Action HUD (4 cols) -->
+        <div class="lg:col-span-4 space-y-4">
+          
+          <!-- Character Card -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl bg-orange-600 border-2 border-amber-400 flex items-center justify-center text-xl font-black text-white shadow-md relative overflow-hidden">
+                GK
+                <span class="absolute bottom-0 right-0 bg-black/70 text-xs px-1 text-amber-300 font-mono">Lv.12</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-white text-base">Goku (Saiyan)</h3>
+                  <span class="text-xs bg-emerald-950 border border-emerald-500/40 text-emerald-300 px-2 py-0.5 rounded font-mono">ACTIVE</span>
+                </div>
+                <p class="text-xs text-slate-400">Move: <span class="text-cyan-300 font-mono font-bold">5</span> • Jump: <span class="text-purple-300 font-mono font-bold">3</span> (Vaults H2!)</p>
+              </div>
+            </div>
+
+            <!-- HP Bar -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Health Points</span>
+                <span id="hp-display" class="font-mono font-bold text-emerald-400">65 / 75 HP</span>
+              </div>
+              <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
+                <div id="hp-bar" class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full w-[86%] transition-all"></div>
+              </div>
+            </div>
+
+            <!-- Energy Bar (10 Pips) -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Ki / Energy Pool (Max 10)</span>
+                <span class="font-mono font-bold text-cyan-400">6 / 10 EP</span>
+              </div>
+              <div class="grid grid-cols-10 gap-1">
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/50"></div>
+                <div class="h-3 rounded-sm bg-slate-800 border border-slate-700"></div>
+                <div class="h-3 rounded-sm bg-slate-800 border border-slate-700"></div>
+                <div class="h-3 rounded-sm bg-slate-800 border border-slate-700"></div>
+                <div class="h-3 rounded-sm bg-slate-800 border border-slate-700"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions HUD -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md space-y-3">
+            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Main Actions (1 Available)</h4>
+            
+            <button class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-between text-left group transition">
+              <div>
+                <div class="font-semibold text-xs text-white group-hover:text-amber-300">👊 Basic Strike (Unarmed)</div>
+                <div class="text-xs text-slate-400">Range: 1 • Dmg: 5 + ATK (12 Dmg)</div>
+              </div>
+              <span class="text-xs font-mono text-emerald-400 font-bold">+2 EP</span>
+            </button>
+
+            <button onclick="toggleAoEPreview()" class="w-full py-2.5 px-3 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-700/50 rounded-lg flex items-center justify-between text-left group transition">
+              <div>
+                <div class="font-semibold text-xs text-indigo-200 group-hover:text-white">💥 Kamehameha (3x3 AoE)</div>
+                <div id="move-range-label" class="text-xs text-slate-400">Range: 1-6 • 3x3 AoE • 22 Magic Dmg</div>
+              </div>
+              <span class="text-xs font-mono text-cyan-400 font-bold">-4 EP</span>
+            </button>
+
+            <button class="w-full py-2.5 px-3 bg-amber-950/40 hover:bg-amber-900/40 border border-amber-700/40 rounded-lg flex items-center justify-between text-left group transition">
+              <div>
+                <div class="font-semibold text-xs text-amber-200">🛡️ Defensive Stance</div>
+                <div class="text-xs text-slate-400">Active d20 Block & Parry (Cannot block Boss Unblockables!)</div>
+              </div>
+              <span class="text-xs font-mono text-slate-400">0 EP</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: CHARACTER CREATOR VIEW -->
+    <div id="view-creator" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+      <div class="border-b border-slate-800 pb-4 flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-white">Multiverse Character Creator</h2>
+          <p class="text-xs text-slate-400">Build your legend from any universe. Base stats start at 1 (HP starts at 20, Move at 5).</p>
+        </div>
+        <div class="bg-indigo-950 border border-indigo-700/60 px-3 py-1.5 rounded-lg text-xs font-mono text-indigo-300">
+          Available Skill Points: <b class="text-white">5</b>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="space-y-4">
+          <label class="block text-xs font-semibold text-slate-300 uppercase">Character Portrait</label>
+          <div class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-950/50">
+            <div class="w-20 h-20 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-3xl mb-2 text-slate-400">
+              🖼️
+            </div>
+            <p class="text-xs text-slate-300 font-medium">Click to upload avatar file</p>
+            <p class="text-xs text-slate-500">Visible on battlefield tokens and party sheets</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Character Name</label>
+            <input type="text" value="Hawkeye / Sniper" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Combat Attack Range</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="border border-slate-800 p-2 rounded-lg bg-slate-950 flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="range_type" class="text-indigo-600" />
+                <span class="text-xs text-slate-300">Melee (1 Tile)</span>
+              </label>
+              <label class="border border-indigo-600 p-2 rounded-lg bg-indigo-950/30 flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="range_type" checked class="text-indigo-600" />
+                <span class="text-xs text-white font-semibold">Range Band (5–9)</span>
+              </label>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Climbing Mountain Spires grants +Range per height level!</p>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-xs font-semibold text-slate-300 uppercase">Core Stats Allocation</h3>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>HP (Base 20, +5/pt)</span>
+              <span class="font-mono text-emerald-400 font-bold">25</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>ATK (Physical Power)</span>
+              <span class="font-mono text-amber-400 font-bold">3</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>P.DEF / M.DEF</span>
+              <span class="font-mono text-blue-300">1 / 1</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>Move (Base 5, Max 10)</span>
+              <span class="font-mono text-slate-200">5</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>Jump (Base 0, Max 5)</span>
+              <span class="font-mono text-purple-300 font-bold">3 (Scale Spires!)</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+              <span>Accuracy (Base 1, Max 5)</span>
+              <span class="font-mono text-yellow-300 font-bold">3</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <h3 class="text-xs font-semibold text-slate-300 uppercase">Custom Signature Move</h3>
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Move Name</label>
+              <input type="text" value="Rain of Arrows" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Targeting</label>
+                <select class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                  <option>3x3 Square AoE</option>
+                  <option>Single Target</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Move Range</label>
+                <input type="text" value="5-9" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 font-mono" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: DM ENCOUNTER PANEL -->
+    <div id="view-dm" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+      <div class="border-b border-slate-800 pb-4 flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-white">Dungeon Master Control Center</h2>
+          <p class="text-xs text-slate-400">Choose one of the 5 Battlefield Presets, spawn enemies, and start combat.</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <button onclick="loadPreset('plains'); switchTab('combat');" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left">
+          <div class="text-lg mb-1">🌾</div>
+          <div class="font-bold text-xs text-white">Plains</div>
+          <div class="text-xs text-slate-400">10x10 • No obstacles, flat H0</div>
+        </button>
+        <button onclick="loadPreset('mountain'); switchTab('combat');" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left">
+          <div class="text-lg mb-1">⛰️</div>
+          <div class="font-bold text-xs text-white">Mountainous</div>
+          <div class="text-xs text-slate-400">10x10 • Scalable spires (+Range)</div>
+        </button>
+        <button onclick="loadPreset('dungeon'); switchTab('combat');" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left">
+          <div class="text-lg mb-1">🏰</div>
+          <div class="font-bold text-xs text-white">Dungeon Room</div>
+          <div class="text-xs text-slate-400">10x10 • Breakable walls & traps</div>
+        </button>
+        <button onclick="loadPreset('small_dungeon'); switchTab('combat');" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left">
+          <div class="text-lg mb-1">🗝️</div>
+          <div class="font-bold text-xs text-white">Small Dungeon</div>
+          <div class="text-xs text-slate-400">6x6 • Tight limited space</div>
+        </button>
+        <button onclick="loadPreset('boss'); switchTab('combat');" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left">
+          <div class="text-lg mb-1">💀</div>
+          <div class="font-bold text-xs text-white">Boss Room</div>
+          <div class="text-xs text-slate-400">8x8 • Pillars for Unblockables</div>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.getElementById('view-combat').classList.add('hidden');
+      document.getElementById('view-creator').classList.add('hidden');
+      document.getElementById('view-dm').classList.add('hidden');
+      
+      document.getElementById('tab-combat').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700";
+      document.getElementById('tab-creator').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700";
+      document.getElementById('tab-dm').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700";
+
+      document.getElementById('view-' + tabId).classList.remove('hidden');
+      document.getElementById('tab-' + tabId).className = "px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow";
+    }
+
+    const gridContainer = document.getElementById('battle-grid');
+    let currentPreset = 'dungeon';
+    let gridSize = 10;
+    let playerPos = { r: 2, c: 2 };
+    let enemyPos = { r: 4, c: 6 };
+    let playerHP = 65;
+    let isPlayerSelected = true;
+    let showAoEPreview = false;
+    let showBossBlast = false;
+    const playerMove = 5;
+    const playerJump = 3;
+
+    // 0=normal, 1=H1 spire, 2=H2 spire, 3=H3 tall spire, 'wall'=breakable wall, 'trap'=spike trap, 'pillar'=indestructible boss cover pillar
+    let terrainMap = [];
+
+    const PRESETS = {
+      plains: {
+        size: 10,
+        bgClass: 'bg-map-plains',
+        title: '🌾 Open Plains (10x10)',
+        desc: 'Wide open meadow with zero obstacles and zero height changes (H0 everywhere). Pure spacing and movement.',
+        player: { r: 5, c: 2 },
+        enemy: { r: 5, c: 7 },
+        map: Array.from({ length: 10 }, () => Array(10).fill(0))
+      },
+      mountain: {
+        size: 10,
+        bgClass: 'bg-map-mountain',
+        title: '⛰️ Mountainous Region (10x10 — Scalable Spires)',
+        desc: 'Craggy rocks and scalable stone spires (H1, H2, H3). Climbing spires grants +1 Max Range per height level!',
+        player: { r: 4, c: 2 },
+        enemy: { r: 4, c: 7 },
+        map: [
+          [0, 0, 1, 1, 0, 0, 0, 1, 2, 0],
+          [0, 1, 2, 1, 0, 0, 0, 1, 1, 0],
+          [0, 0, 1, 0, 0, 2, 3, 2, 0, 0],
+          [0, 0, 0, 0, 0, 1, 2, 1, 0, 0],
+          [0, 0, 0, 2, 3, 0, 0, 0, 0, 0],
+          [0, 1, 2, 3, 2, 0, 0, 1, 2, 0],
+          [0, 0, 1, 2, 0, 0, 0, 2, 3, 1],
+          [0, 0, 0, 0, 0, 1, 1, 0, 1, 0],
+          [1, 2, 1, 0, 0, 1, 2, 0, 0, 0],
+          [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+      },
+      dungeon: {
+        size: 10,
+        bgClass: 'bg-map-dungeon',
+        title: '🏰 Standard Dungeon Room (10x10)',
+        desc: 'Enclosed stone chamber with 🧱 Breakable Walls (1 Main Action to smash), obstacles, and ⚠️ Floor Traps (-5 HP).',
+        player: { r: 2, c: 2 },
+        enemy: { r: 4, c: 6 },
+        map: [
+          [0, 0, 0, 'wall', 0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 'wall', 0, 'trap', 0, 0, 0, 0],
+          [0, 0, 0, 'wall', 0, 0, 0, 'wall', 0, 0],
+          [0, 'trap', 0, 'wall', 0, 1, 1, 'wall', 0, 0],
+          [0, 0, 0, 0, 'trap', 1, 0, 1, 0, 0],
+          [0, 0, 'wall', 'wall', 0, 1, 1, 0, 0, 0],
+          [0, 0, 'wall', 0, 0, 0, 'trap', 0, 0, 0],
+          [0, 0, 0, 0, 0, 2, 2, 0, 'wall', 0],
+          [0, 'trap', 0, 0, 0, 2, 2, 0, 'wall', 0],
+          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+      },
+      small_dungeon: {
+        size: 6,
+        bgClass: 'bg-map-dungeon',
+        title: '🗝️ Small Cramped Dungeon (6x6 — Limited Space)',
+        desc: 'Tight claustrophobic 6x6 room! Minimal room to kite; breakable walls and traps are everywhere.',
+        player: { r: 1, c: 1 },
+        enemy: { r: 4, c: 4 },
+        map: [
+          [0, 0, 'wall', 0, 'trap', 0],
+          [0, 0, 'wall', 0, 0, 0],
+          [0, 'trap', 0, 1, 'wall', 0],
+          [0, 'wall', 1, 0, 0, 0],
+          [0, 0, 0, 'trap', 0, 0],
+          [0, 0, 'wall', 0, 0, 0],
+        ]
+      },
+      boss: {
+        size: 8,
+        bgClass: 'bg-map-boss',
+        title: '💀 Boss Arena (8x8 — Cover Pillars vs Unblockables)',
+        desc: 'Compact 8x8 Boss Chamber with 🏛️ Indestructible Pillars! Hide in the green shadow behind a pillar when the Boss uses an Unblockable Attack!',
+        player: { r: 6, c: 2 },
+        enemy: { r: 1, c: 4 },
+        map: [
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 'pillar', 0, 0, 'pillar', 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 'pillar', 0, 0, 'pillar', 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+      }
+    };
+
+    function loadPreset(name) {
+      currentPreset = name;
+      const p = PRESETS[name];
+      gridSize = p.size;
+      playerPos = { ...p.player };
+      enemyPos = { ...p.enemy };
+      terrainMap = p.map.map(row => [...row]);
+      showBossBlast = (name === 'boss'); // Auto-show the Boss Pillar Cover mechanic when selecting Boss Room!
+
+      // Update preset buttons
+      ['plains', 'mountain', 'dungeon', 'small_dungeon', 'boss'].forEach(id => {
+        const btn = document.getElementById('preset-' + id);
+        if (id === name) {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700";
+        }
+      });
+
+      // Update wrapper background and grid columns
+      const wrapper = document.getElementById('battle-grid-wrapper');
+      wrapper.className = `p-2.5 rounded-xl border-2 border-slate-700 shadow-2xl ${p.bgClass} relative`;
+      gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+
+      document.getElementById('map-title').textContent = p.title;
+      document.getElementById('map-desc').textContent = p.desc;
+
+      const bossBtn = document.getElementById('btn-boss-blast');
+      if (name === 'boss') {
+        bossBtn.classList.remove('hidden');
+      } else {
+        bossBtn.classList.add('hidden');
+      }
+
+      renderGrid();
+    }
+
+    function toggleBossBlast() {
+      showBossBlast = !showBossBlast;
+      renderGrid();
+    }
+
+    function toggleAoEPreview() {
+      showAoEPreview = !showAoEPreview;
+      renderGrid();
+    }
+
+    // Check if tile (r, c) is protected from Boss at enemyPos by a 'pillar'
+    function isTileInPillarCover(r, c) {
+      for (let pr = 0; pr < gridSize; pr++) {
+        for (let pc = 0; pc < gridSize; pc++) {
+          if (terrainMap[pr][pc] === 'pillar') {
+            // Simple ray/shadow check: if pillar is between boss (enemyPos) and tile
+            const dBossToPillar = Math.hypot(pr - enemyPos.r, pc - enemyPos.c);
+            const dBossToTile = Math.hypot(r - enemyPos.r, c - enemyPos.c);
+            if (dBossToTile > dBossToPillar) {
+              // Check angle alignment
+              const anglePillar = Math.atan2(pr - enemyPos.r, pc - enemyPos.c);
+              const angleTile = Math.atan2(r - enemyPos.r, c - enemyPos.c);
+              if (Math.abs(anglePillar - angleTile) < 0.28) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function getReachableTiles() {
+      const costs = {};
+      const queue = [{ r: playerPos.r, c: playerPos.c, cost: 0 }];
+      costs[`${playerPos.r},${playerPos.c}`] = 0;
+
+      while (queue.length > 0) {
+        queue.sort((a, b) => a.cost - b.cost);
+        const curr = queue.shift();
+
+        const dirs = [[-1,0], [1,0], [0,-1], [0,1]];
+        for (const [dr, dc] of dirs) {
+          const nr = curr.r + dr;
+          const nc = curr.c + dc;
+          if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) continue;
+
+          const cell = terrainMap[nr][nc];
+          if (cell === 'wall' || cell === 'pillar') continue; // Walls and Boss Pillars block movement
+          if (nr === enemyPos.r && nc === enemyPos.c && currentPreset === 'boss') continue; // Bosses cannot be jumped over!
+          if (nr === enemyPos.r && nc === enemyPos.c && playerJump <= 2) continue;
+
+          const H = (typeof cell === 'number') ? cell : 0;
+          const stepCost = 1 + Math.max(0, 2 * H - 2 * playerJump);
+          const nextCost = curr.cost + stepCost;
+
+          if (nextCost <= playerMove) {
+            const key = `${nr},${nc}`;
+            if (costs[key] === undefined || nextCost < costs[key]) {
+              costs[key] = nextCost;
+              queue.push({ r: nr, c: nc, cost: nextCost });
+            }
+          }
+        }
+      }
+      return costs;
+    }
+
+    function renderGrid() {
+      gridContainer.innerHTML = '';
+      const reachable = isPlayerSelected ? getReachableTiles() : {};
+
+      // Check player elevation for High Ground Range Bonus
+      const playerCell = terrainMap[playerPos.r][playerPos.c];
+      const currentH = (typeof playerCell === 'number') ? playerCell : 0;
+      const badge = document.getElementById('high-ground-badge');
+      const rangeLabel = document.getElementById('move-range-label');
+      if (currentH > 0) {
+        badge.innerHTML = `⛰️ High Ground: <b class="text-amber-300">H${currentH} Spire</b> • Range Bonus: <b class="text-emerald-400">+${currentH} Blocks!</b>`;
+        rangeLabel.innerHTML = `Range: 1-${6 + currentH} (+${currentH} High Ground!) • 3x3 AoE`;
+      } else {
+        badge.innerHTML = `Elevation: <b class="text-white">H0 (Ground)</b> • Bonus Range: <b class="text-slate-400">+0</b>`;
+        rangeLabel.innerHTML = `Range: 1-6 • 3x3 AoE • 22 Magic Dmg`;
+      }
+
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const tile = document.createElement('div');
+          tile.className = 'grid-tile rounded flex items-center justify-center relative font-mono text-xs cursor-pointer border border-white/15';
+          
+          const cell = terrainMap[r][c];
+          const isPlayer = (r === playerPos.r && c === playerPos.c);
+          const isEnemy = (r === enemyPos.r && c === enemyPos.c);
+          const moveCost = reachable[`${r},${c}`];
+
+          const inAoE = showAoEPreview && (Math.abs(r - enemyPos.r) <= 1 && Math.abs(c - enemyPos.c) <= 1);
+          const isCenterAoE = showAoEPreview && isEnemy;
+
+          if (isPlayer) {
+            tile.classList.add('bg-amber-500/30', 'border-amber-400', 'ring-2', 'ring-amber-300', 'z-10');
+            tile.innerHTML = `<span class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white font-black flex items-center justify-center shadow-lg border-2 border-white">GK</span>`;
+            if (currentH > 0) {
+              tile.innerHTML += `<span class="text-xs text-amber-300 font-bold bg-black/70 px-1 rounded absolute -top-1 -right-1">H${currentH}</span>`;
+            }
+            tile.onclick = () => {
+              isPlayerSelected = !isPlayerSelected;
+              renderGrid();
+            };
+          } else if (isEnemy) {
+            const label = currentPreset === 'boss' ? 'BOSS' : 'EN';
+            tile.classList.add('bg-red-950/60', 'border-red-500', 'ring-2', 'ring-red-500', 'z-10');
+            tile.innerHTML = `<span class="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-rose-950 text-white text-xs font-black flex items-center justify-center shadow-lg border-2 border-red-300">${label}</span>`;
+          } else if (cell === 'wall') {
+            tile.classList.add('bg-stone-900/90', 'border-amber-600/90', 'shadow-inner');
+            tile.innerHTML = `<span class="text-base" title="Breakable Wall (Click to Demolish with Main Action)">🧱</span>`;
+            tile.onclick = () => {
+              terrainMap[r][c] = 0;
+              renderGrid();
+            };
+          } else if (cell === 'pillar') {
+            tile.classList.add('bg-slate-800/95', 'border-cyan-200/80', 'ring-1', 'ring-cyan-300/40', 'shadow-xl');
+            tile.innerHTML = `<span class="text-base" title="Indestructible Cover Pillar (Blocks Boss Unblockable Attacks)">🏛️</span>`;
+          } else if (cell === 'trap') {
+            tile.classList.add('bg-orange-950/70', 'border-orange-500/70');
+            tile.innerHTML = `<span class="text-sm" title="Floor Trap (-5 HP Hazard Damage)">⚠️</span>`;
+          } else if (typeof cell === 'number' && cell > 0) {
+            const alpha = cell === 1 ? 'bg-white/15' : (cell === 2 ? 'bg-white/25' : 'bg-amber-400/30 border-amber-300');
+            tile.className += ` ${alpha}`;
+            tile.innerHTML = `<span class="text-xs text-amber-200 font-bold drop-shadow bg-black/50 px-1 rounded absolute top-0.5 left-0.5">H${cell}</span>`;
+          }
+
+          // Boss Unblockable Attack Telegraph & Safe Cover Shadow
+          if (showBossBlast && !isEnemy && cell !== 'pillar') {
+            const safe = isTileInPillarCover(r, c);
+            if (safe) {
+              tile.classList.add('bg-emerald-500/45', 'border-emerald-300', 'ring-1', 'ring-emerald-300');
+              if (!isPlayer) {
+                tile.innerHTML += `<span class="text-xs text-emerald-100 font-bold bg-emerald-950/80 px-1 rounded absolute top-0.5 right-0.5">SAFE</span>`;
+              }
+            } else {
+              tile.classList.add('bg-rose-600/40', 'border-rose-500/60');
+            }
+          }
+
+          // Highlight reachable tiles when character is clicked
+          if (!isPlayer && !isEnemy && cell !== 'wall' && cell !== 'pillar' && moveCost !== undefined && moveCost > 0) {
+            tile.classList.add('bg-cyan-400/35', 'border-cyan-300', 'hover:bg-cyan-300/55', 'shadow-[inset_0_0_8px_rgba(34,211,238,0.5)]');
+            tile.innerHTML += `<span class="text-xs text-cyan-100 font-bold drop-shadow absolute bottom-0.5 right-1">${moveCost}</span>`;
+            tile.onclick = () => {
+              playerPos = { r, c };
+              if (terrainMap[r][c] === 'trap') {
+                playerHP = Math.max(1, playerHP - 5);
+                document.getElementById('hp-display').textContent = `${playerHP} / 75 HP (-5 Trap!)`;
+                document.getElementById('hp-bar').style.width = `${(playerHP / 75) * 100}%`;
+              }
+              renderGrid();
+            };
+          }
+
+          // AoE Visualizer Overlay
+          if (inAoE && cell !== 'wall' && cell !== 'pillar') {
+            if (isCenterAoE) {
+              tile.classList.add('bg-red-600/60', 'border-red-300', 'ring-2', 'ring-red-400');
+            } else {
+              tile.classList.add('bg-red-500/35', 'border-red-400/80');
+            }
+          }
+
+          gridContainer.appendChild(tile);
+        }
+      }
+    }
+
+    loadPreset('dungeon');
+  </script>
+</body>
+</html>
