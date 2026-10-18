@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DND2 — Multiverse Tactical RPG & Virtual Tabletop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .font-cinzel {
+      font-family: 'Cinzel', serif;
+    }
+    .grid-tile {
+      width: 48px;
+      height: 48px;
+      transition: all 0.15s ease-in-out;
+    }
+    @media (max-width: 640px) {
+      .grid-tile {
+        width: 36px;
+        height: 36px;
+      }
+    }
+    .bg-map-plains {
+      background-image: url('assets/maps/plains.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-mountain {
+      background-image: url('assets/maps/mountain.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-dungeon {
+      background-image: url('assets/maps/dungeon.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-forest {
+      background-image: url('assets/maps/forest.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    .bg-map-boss {
+      background-image: url('assets/maps/boss.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.6)); }
+      50% { transform: scale(1.05); filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.9)); }
+    }
+    .pulse-selected {
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-[#080b12] text-slate-100 antialiased min-h-screen p-3 md:p-6 selection:bg-amber-500 selection:text-black">
+  <div class="max-w-7xl mx-auto space-y-4">
+
+    <!-- TOP HEADER & MULTIPLAYER LOBBY BAR -->
+    <header class="bg-[#0f172a]/90 backdrop-blur border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 flex items-center justify-center font-black text-2xl text-black shadow-lg shadow-amber-500/20 font-cinzel">
+          D2
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-black text-xl text-white tracking-wide font-cinzel">DND2 MULTIVERSE</h1>
+            <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">VTT v1.0</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Lobby: <span id="lobby-code" class="text-amber-400 font-mono font-bold tracking-wider">#MV-8821</span> • 
+            Role: <span id="current-role-badge" class="text-emerald-400 font-semibold">Dungeon Master (Host)</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex flex-wrap gap-2">
+        <button id="tab-combat" onclick="switchTab('combat')" class="px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black shadow-lg shadow-amber-500/20 transition">
+          ⚔️ Tactical Combat
+        </button>
+        <button id="tab-creator" onclick="switchTab('creator')" class="px-4 py-2 text-xs font-bold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">
+          👤 Character Creator
+        </button>
+        <button id="tab-dm" onclick="switchTab('dm')" class="px-4 py-2 text-xs font-bold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">
+          👑 DM Encounter Panel
+        </button>
+      </nav>
+
+      <!-- Role Switcher & Live Tabs Sync -->
+      <div class="flex items-center gap-3">
+        <div class="text-right hidden sm:block">
+          <div class="text-[11px] text-slate-400">Switch Active View:</div>
+          <select id="role-select" onchange="changeRole(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-medium focus:outline-none focus:border-amber-500">
+            <option value="dm">👑 DM Mode (Controls All)</option>
+            <option value="player">👤 Player Mode (Goku / Custom)</option>
+          </select>
+        </div>
+        <button onclick="copyLobbyLink()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition">
+          🔗 <span>Share Lobby</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- VIEW 1: TACTICAL COMBAT VIEW -->
+    <div id="view-combat" class="space-y-4">
+      
+      <!-- 5 Battlefield Layout Bar -->
+      <div class="bg-[#0f172a]/80 backdrop-blur border border-slate-800 rounded-2xl p-3 shadow-xl flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">🗺️ Preset Layout:</span>
+          <div class="flex flex-wrap gap-1.5" id="preset-buttons">
+            <button onclick="loadPreset('plains')" id="btn-plains" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              🌾 Plains (Flat)
+            </button>
+            <button onclick="loadPreset('mountain')" id="btn-mountain" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              ⛰️ Mountain (Scalable Spires)
+            </button>
+            <button onclick="loadPreset('dungeon')" id="btn-dungeon" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-black font-bold shadow transition">
+              🏰 Dungeon (Walls & Traps)
+            </button>
+            <button onclick="loadPreset('forest')" id="btn-forest" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              🗝️ Small Dungeon (6x6)
+            </button>
+            <button onclick="loadPreset('boss')" id="btn-boss" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              💀 Boss Arena (Pillars)
+            </button>
+          </div>
+        </div>
+
+        <!-- Action / Initiative Controls -->
+        <div class="flex items-center gap-2">
+          <button onclick="startCombat()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5">
+            ⚡ <span>Roll Initiative & Start Combat</span>
+          </button>
+          <button onclick="resetCombat()" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 transition">
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Turn Timeline Header -->
+      <div class="bg-[#0f172a]/70 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs overflow-x-auto shadow-inner">
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="font-bold text-amber-400 uppercase tracking-wider font-cinzel">Turn Timeline:</span>
+          <span id="round-badge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">Round 1</span>
+        </div>
+        <div id="timeline-units" class="flex items-center gap-2 flex-grow mx-4 overflow-x-auto py-1">
+          <!-- Populated dynamically with character tokens in Speed order -->
+        </div>
+        <button onclick="nextTurn()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-xs transition flex-shrink-0">
+          End Turn ⏭️
+        </button>
+      </div>
+
+      <!-- Main Battlefield Layout: Grid (Left) + Tactical HUD (Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Tactical Grid Arena -->
+        <div class="lg:col-span-8 bg-[#0f172a]/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col items-center relative overflow-hidden">
+          
+          <!-- Map Info Header -->
+          <div class="w-full flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mb-3 pb-3 border-b border-slate-800/80">
+            <div>
+              <span id="map-title" class="font-bold text-white text-sm font-cinzel tracking-wide">🏰 Standard Dungeon Room (10x10)</span>
+              <p id="map-desc" class="text-[11px] text-slate-400">Features breakable walls (1 Main Action to smash), scalable elevation, and spike traps.</p>
+            </div>
+            <!-- Legend Indicators -->
+            <div class="flex flex-wrap items-center gap-3 text-[11px]">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-cyan-400/40 border border-cyan-300 rounded"></span> Move</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-amber-500/30 border border-amber-400 rounded"></span> Range Band</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-600/50 border border-red-500 rounded"></span> 3x3 AoE</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-stone-900 border border-amber-600 rounded"></span> 🧱 Wall</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 bg-slate-800 border border-cyan-300 rounded"></span> 🏛️ Cover</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Mode Banner -->
+          <div id="mode-banner" class="w-full py-1.5 px-3 mb-3 bg-cyan-950/60 border border-cyan-800/60 rounded-xl text-center text-xs text-cyan-200 font-medium">
+            💡 Click your character token to highlight reachable spaces, then click a tile to move.
+          </div>
+
+          <!-- Battlefield Board Container with Illustrated Background -->
+          <div class="relative p-2 rounded-2xl border-2 border-slate-700/80 shadow-2xl overflow-auto max-w-full">
+            <div id="battle-grid-wrapper" class="relative rounded-xl overflow-hidden bg-slate-900 bg-map-dungeon shadow-inner">
+              <div id="battle-grid" class="relative grid gap-0.5 p-1 backdrop-brightness-90">
+                <!-- Tiles rendered via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Log Box under the Grid -->
+          <div class="w-full mt-4 bg-slate-950/80 border border-slate-800 rounded-xl p-3 max-h-36 overflow-y-auto font-mono text-xs text-slate-300 space-y-1" id="combat-log">
+            <div class="text-amber-400 font-bold">⚔️ Combat engine initialized. Ready for battle.</div>
+          </div>
+
+        </div>
+
+        <!-- Right Side: Tactical Character Action HUD -->
+        <div class="lg:col-span-4 space-y-4">
+          
+          <!-- Selected Combatant Status Card -->
+          <div class="bg-[#0f172a]/90 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center gap-4 pb-4 border-b border-slate-800">
+              <div class="relative">
+                <img id="hud-avatar" src="https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150" class="w-16 h-16 rounded-2xl object-cover border-2 border-amber-500 shadow-lg shadow-amber-500/20" />
+                <span id="hud-type-badge" class="absolute -bottom-2 -right-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black uppercase">PLAYER</span>
+              </div>
+              <div class="flex-grow">
+                <h3 id="hud-name" class="font-bold text-lg text-white font-cinzel">Goku</h3>
+                <p id="hud-universe" class="text-xs text-slate-400">Universe: Dragon Ball Super • Lv. 1</p>
+                <div class="mt-2 space-y-1">
+                  <!-- HP Bar -->
+                  <div class="flex justify-between text-xs">
+                    <span class="text-slate-400">Health:</span>
+                    <span id="hud-hp-text" class="font-bold text-emerald-400 font-mono">65 / 65 HP</span>
+                  </div>
+                  <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="hud-hp-bar" class="bg-gradient-to-r from-emerald-500 to-green-400 h-2 rounded-full transition-all duration-300" style="width: 100%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 10 Energy Pips HUD -->
+            <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  ⚡ Energy Pool:
+                </span>
+                <span id="hud-energy-text" class="font-mono text-cyan-400 font-bold">10 / 10 Pips</span>
+              </div>
+              <div id="energy-pips-container" class="grid grid-cols-10 gap-1 pt-1">
+                <!-- 10 glowing energy pips -->
+              </div>
+            </div>
+
+            <!-- Action Economy Status -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div id="badge-main-action" class="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <span class="text-slate-400">Main Action:</span>
+                <span id="text-main-action" class="font-bold text-emerald-400">READY</span>
+              </div>
+              <div id="badge-minor-action" class="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <span class="text-slate-400">Minor Action:</span>
+                <span id="text-minor-action" class="font-bold text-emerald-400">READY</span>
+              </div>
+            </div>
+
+            <!-- Stats Overview Pill Grid -->
+            <div class="grid grid-cols-3 gap-1.5 text-center text-[11px] bg-slate-950/40 p-2 rounded-xl border border-slate-800/50">
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">ATK:</span> <strong id="hud-atk" class="text-amber-400 font-mono">15</strong></div>
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">P.DEF:</span> <strong id="hud-pdef" class="text-blue-400 font-mono">5</strong></div>
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">M.DEF:</span> <strong id="hud-mdef" class="text-purple-400 font-mono">4</strong></div>
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">Move:</span> <strong id="hud-move" class="text-cyan-400 font-mono">5</strong></div>
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">Jump:</span> <strong id="hud-jump" class="text-yellow-400 font-mono">3</strong></div>
+              <div class="p-1 rounded bg-slate-900/60"><span class="text-slate-400">Speed:</span> <strong id="hud-speed" class="text-rose-400 font-mono">8</strong></div>
+            </div>
+
+            <!-- Available Character Moves & Actions -->
+            <div class="space-y-2">
+              <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Combat Actions:</span>
+              
+              <!-- Basic Attack (Range 1 Melee or Range Band) -->
+              <button id="btn-basic-attack" onclick="selectAction('basic')" class="w-full p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between text-xs transition">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🗡️</span>
+                  <div class="text-left">
+                    <div class="font-bold text-white">Basic Strike</div>
+                    <div class="text-[10px] text-slate-400">Range: <span id="hud-basic-range" class="text-amber-300 font-mono">1 (Melee)</span> • Cost: 0 Energy</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">1 Main</span>
+              </button>
+
+              <!-- Signature Move (3x3 AoE / Range Band) -->
+              <button id="btn-special-move" onclick="selectAction('signature')" class="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-600/20 to-red-600/20 hover:from-amber-600/30 hover:to-red-600/30 border border-amber-500/40 flex items-center justify-between text-xs transition">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">💥</span>
+                  <div class="text-left">
+                    <div id="hud-move-name" class="font-bold text-amber-300">Kamehameha / Spirit Blast</div>
+                    <div class="text-[10px] text-slate-400">Target: <span id="hud-move-aoe" class="text-red-400 font-bold">3x3 AoE</span> • Range: <span id="hud-move-range" class="text-amber-400 font-mono">5-9</span></div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold">4 Energy</span>
+              </button>
+
+              <!-- Break Adjacent Wall Action -->
+              <button onclick="selectAction('break-wall')" class="w-full p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-600/40 flex items-center justify-between text-xs text-amber-200 transition">
+                <div class="flex items-center gap-2">
+                  <span>🧱</span>
+                  <span class="font-semibold">Smash Adjacent Wall (1 Main Action)</span>
+                </div>
+                <span class="text-[10px] text-amber-400">Destroys 15 HP Wall</span>
+              </button>
+
+              <!-- Guard Stance -->
+              <button onclick="activateGuard()" class="w-full p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 flex items-center justify-between text-xs text-slate-300 transition">
+                <div class="flex items-center gap-2">
+                  <span>🛡️</span>
+                  <span class="font-semibold">Defensive Guard (+50% P.DEF & M.DEF)</span>
+                </div>
+                <span class="text-[10px] text-emerald-400">1 Minor Action</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Boss Unblockable Attack Special Button (In Boss Room) -->
+          <div id="boss-unblockable-box" class="bg-red-950/40 border border-red-700/60 rounded-2xl p-4 shadow-xl space-y-2">
+            <div class="flex items-center gap-2 text-red-300 font-bold text-xs uppercase tracking-wider font-cinzel">
+              <span>⚠️ Boss Threat:</span>
+              <span>Unblockable Cosmic Annihilation</span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              The Boss prepares an unavoidable blast! Players MUST stand directly in the green shadow behind a 🏛️ Pillar to survive without taking 50 damage!
+            </p>
+            <button onclick="triggerBossBlast()" class="w-full py-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+              🔥 Fire Boss Unblockable Beam
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- VIEW 2: CHARACTER CREATOR VIEW -->
+    <div id="view-creator" class="hidden bg-[#0f172a]/90 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+      
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white font-cinzel">Multiverse Character Creator</h2>
+          <p class="text-xs text-slate-400">Upload your character avatar, distribute your 5 Level-1 Skill Points, and forge your signature 3x3 AoE move.</p>
+        </div>
+        <div class="bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs">
+          <span class="text-slate-400">Available Skill Points:</span> 
+          <strong id="creator-sp" class="text-amber-400 font-mono text-sm ml-1">5</strong>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        <!-- Left: Portrait Upload & Identity -->
+        <div class="md:col-span-4 bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Identity & Portrait</h3>
+          
+          <!-- Avatar Preview with File Upload -->
+          <div class="flex flex-col items-center gap-3">
+            <div class="relative group">
+              <img id="creator-avatar-preview" src="https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=200" class="w-28 h-28 rounded-2xl object-cover border-2 border-amber-500 shadow-xl" />
+              <label for="avatar-file-input" class="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-white text-xs font-bold">
+                <span>📷 Upload</span>
+                <span class="text-[10px] text-amber-300">JPG / PNG</span>
+              </label>
+            </div>
+            <input type="file" id="avatar-file-input" accept="image/*" onchange="handleAvatarUpload(event)" class="hidden" />
+            <button onclick="document.getElementById('avatar-file-input').click()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-amber-300 font-semibold transition">
+              Upload Character Picture
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Character Name</label>
+            <input type="text" id="creator-name" value="Goku" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Origin Universe</label>
+            <input type="text" id="creator-universe" value="Dragon Ball Super" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-amber-500" />
+          </div>
+
+          <!-- Basic Attack Range Selector -->
+          <div class="pt-2 border-t border-slate-800 space-y-2">
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Attack Range Profile</label>
+            <div class="space-y-2">
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="radio" name="range-profile" value="1" checked onchange="toggleRangeInputs(this.value)" class="text-amber-500 focus:ring-0">
+                <span>🗡️ <strong>Melee (Range: 1)</strong> — Adjacent combatant</span>
+              </label>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="radio" name="range-profile" value="band" onchange="toggleRangeInputs(this.value)" class="text-amber-500 focus:ring-0">
+                <span>🏹 <strong>Range Band (e.g. 5–9)</strong> — Bow / Sniper</span>
+              </label>
+            </div>
+            <div id="band-inputs-container" class="hidden grid grid-cols-2 gap-2 pt-1">
+              <div>
+                <label class="block text-[10px] text-slate-400">Min Range</label>
+                <input type="number" id="creator-range-min" value="5" min="2" max="10" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 font-mono" />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400">Max Range</label>
+                <input type="number" id="creator-range-max" value="9" min="3" max="15" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 font-mono" />
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Center: 10 Core Stats Allocator -->
+        <div class="md:col-span-4 bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">10 Core Stats</h3>
+            <span class="text-[10px] text-slate-400">Base stats identical for all</span>
+          </div>
+
+          <!-- Stat Allocator Rows -->
+          <div class="space-y-2 text-xs" id="stat-allocators">
+            <!-- HP -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-emerald-400">HP (Health)</span>
+                <span class="block text-[10px] text-slate-400">Base 20 (+5 per SP)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('hp', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-hp" class="font-mono text-emerald-300 font-bold w-10 text-center">20</span>
+                <button onclick="adjustStat('hp', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- ATK -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-amber-400">ATK (Physical)</span>
+                <span class="block text-[10px] text-slate-400">Base 1</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('atk', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-atk" class="font-mono text-amber-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('atk', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- P.DEF -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-blue-400">P.DEF (Armor)</span>
+                <span class="block text-[10px] text-slate-400">Base 1 (Flat reduction)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('pDef', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-pDef" class="font-mono text-blue-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('pDef', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- M.DEF -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-purple-400">M.DEF (Magic Def)</span>
+                <span class="block text-[10px] text-slate-400">Base 1 (Flat reduction)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('mDef', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-mDef" class="font-mono text-purple-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('mDef', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- Move -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-cyan-400">Move Range</span>
+                <span class="block text-[10px] text-slate-400">Base 5 (Max 10)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('move', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-move" class="font-mono text-cyan-300 font-bold w-10 text-center">5</span>
+                <button onclick="adjustStat('move', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- Jump -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-yellow-400">Jump (Obstacles)</span>
+                <span class="block text-[10px] text-slate-400">Base 0 (Max 5, Spires)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('jump', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-jump" class="font-mono text-yellow-300 font-bold w-10 text-center">0</span>
+                <button onclick="adjustStat('jump', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- Intelligence -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-indigo-400">Intelligence</span>
+                <span class="block text-[10px] text-slate-400">Base 1 (Magic Attacks)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('intelligence', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-intelligence" class="font-mono text-indigo-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('intelligence', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- Accuracy -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-teal-400">Accuracy</span>
+                <span class="block text-[10px] text-slate-400">Base 1 (Max 5, Hit Bonus)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('accuracy', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-accuracy" class="font-mono text-teal-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('accuracy', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+            <!-- Speed -->
+            <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+              <div>
+                <span class="font-bold text-rose-400">Speed</span>
+                <span class="block text-[10px] text-slate-400">Base 1 (Turn Order)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustStat('speed', -1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                <span id="stat-speed" class="font-mono text-rose-300 font-bold w-10 text-center">1</span>
+                <button onclick="adjustStat('speed', 1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right: Custom Signature Move Builder (with 3x3 AoE Preview) -->
+        <div class="md:col-span-4 bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Custom Signature Move</h3>
+          
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Move Name</label>
+            <input type="text" id="creator-move-name" value="Kamehameha Blast" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Targeting Type</label>
+              <select id="creator-move-targeting" onchange="toggleAoEPreview(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white">
+                <option value="aoe">3x3 Square AoE</option>
+                <option value="single">Single Target</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Energy Cost (0-10)</label>
+              <input type="number" id="creator-move-cost" value="4" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-cyan-300 font-mono" />
+            </div>
+          </div>
+
+          <!-- 3x3 AoE Visual Preview Diagram -->
+          <div id="aoe-preview-box" class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-[11px]">
+              <span class="font-bold text-slate-300 uppercase">3x3 AoE Splash Template</span>
+              <span class="text-red-400 font-mono text-[10px]">Center: 100% | Edge: 50%</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1 w-28 mx-auto p-1 bg-slate-950 rounded-lg border border-slate-800">
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-600 border-2 border-amber-400 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">100%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+              <div class="w-8 h-8 rounded bg-red-900/60 border border-red-500/50 flex items-center justify-center text-[10px] text-red-200">50%</div>
+            </div>
+            <p class="text-[10px] text-slate-400 text-center">Hits primary center target and all 8 surrounding blocks!</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Move Range Band</label>
+            <input type="text" id="creator-move-range" value="5-9" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono" />
+            <span class="text-[10px] text-slate-400">Format: e.g. "1" for melee or "5-9" for ranged band</span>
+          </div>
+
+          <button onclick="saveAndSpawnCharacter()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black font-bold rounded-xl text-xs shadow-xl shadow-amber-500/20 font-cinzel transition">
+            ✨ Save & Place Character on Grid
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- VIEW 3: DM ENCOUNTER PANEL -->
+    <div id="view-dm" class="hidden bg-[#0f172a]/90 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white font-cinzel">Dungeon Master Encounter Control</h2>
+          <p class="text-xs text-slate-400">Spawn monsters, upload custom enemy portraits, set enemy stats, and orchestrate the battlefield.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        <!-- Preset Enemy Spawners -->
+        <div class="md:col-span-6 bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Quick Spawn Preset Monsters</h3>
+          
+          <div class="space-y-2">
+            <!-- Preset 1: Goblin Scout -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-xl">👺</div>
+                <div>
+                  <div class="font-bold text-xs text-white">Goblin Skirmisher</div>
+                  <div class="text-[10px] text-slate-400">HP: 30 • ATK: 8 • Speed: 9 • Range: 1</div>
+                </div>
+              </div>
+              <button onclick="spawnPresetEnemy('goblin')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-emerald-400 transition">
+                + Spawn
+              </button>
+            </div>
+
+            <!-- Preset 2: Spire Golem Sniper -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-purple-950 border border-purple-500/50 flex items-center justify-center text-xl">🗿</div>
+                <div>
+                  <div class="font-bold text-xs text-white">Spire Golem Sniper</div>
+                  <div class="text-[10px] text-slate-400">HP: 45 • ATK: 12 • Speed: 5 • Range: 5-9</div>
+                </div>
+              </div>
+              <button onclick="spawnPresetEnemy('golem')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-purple-400 transition">
+                + Spawn
+              </button>
+            </div>
+
+            <!-- Preset 3: Multiverse World Boss -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-red-950 border border-red-500/50 flex items-center justify-center text-xl">🐲</div>
+                <div>
+                  <div class="font-bold text-xs text-white">Omni-Overlord (Boss)</div>
+                  <div class="text-[10px] text-slate-400">HP: 150 • ATK: 25 • Speed: 7 • Unblockables</div>
+                </div>
+              </div>
+              <button onclick="spawnPresetEnemy('boss')" class="px-3 py-1.5 bg-red-950/60 hover:bg-red-900 border border-red-700/60 rounded-lg text-xs font-bold text-red-300 transition">
+                + Spawn Boss
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Enemy Creator with Image Upload -->
+        <div class="md:col-span-6 bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Custom Enemy Creator</h3>
+          
+          <div class="flex items-center gap-4">
+            <div class="relative group">
+              <img id="enemy-avatar-preview" src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=120" class="w-16 h-16 rounded-xl object-cover border border-red-500" />
+              <label for="enemy-file-input" class="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-[10px] text-white font-bold">
+                Upload
+              </label>
+            </div>
+            <input type="file" id="enemy-file-input" accept="image/*" onchange="handleEnemyAvatarUpload(event)" class="hidden" />
+            <div class="flex-grow">
+              <label class="block text-xs text-slate-400 mb-1">Monster Name</label>
+              <input type="text" id="custom-enemy-name" value="Shadow Stalker" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400">HP</label>
+              <input type="number" id="custom-enemy-hp" value="40" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-400 font-mono" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400">ATK</label>
+              <input type="number" id="custom-enemy-atk" value="10" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-400 font-mono" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400">Speed</label>
+              <input type="number" id="custom-enemy-speed" value="6" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-rose-400 font-mono" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400">Attack Range</label>
+              <input type="text" id="custom-enemy-range" value="1" placeholder="1 or 5-9" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 font-mono" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400">Move Range</label>
+              <input type="number" id="custom-enemy-move" value="4" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-300 font-mono" />
+            </div>
+          </div>
+
+          <button onclick="createCustomEnemy()" class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-red-600/20 transition">
+            👹 Spawn Custom Enemy to Grid
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- CORE DND2 TACTICAL ENGINE & MULTIPLAYER LOGIC SCRIPT -->
+  <script>
+    // --- STATE DEFINITIONS ---
+    let currentRole = 'dm'; // 'dm' or 'player'
+    let currentTab = 'combat';
+    let currentPreset = 'dungeon';
+    let gridSize = 10;
+    let roundNumber = 1;
+    let turnIndex = 0;
+    let turnOrder = [];
+    let selectedUnitId = 'player-1';
+    let activeAction = null; // 'basic', 'signature', 'break-wall'
+
+    // Combatants Map: unitId -> Unit object
+    let units = {
+      'player-1': {
+        id: 'player-1',
+        name: 'Goku',
+        universe: 'Dragon Ball Super',
+        type: 'player',
+        avatarUrl: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150',
+        r: 2, c: 2,
+        maxHp: 65, currentHp: 65,
+        energy: 10, maxEnergy: 10,
+        hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+        stats: { hp: 9, atk: 15, pDef: 5, mDef: 4, move: 5, jump: 3, intelligence: 4, luck: 3, accuracy: 4, speed: 8 },
+        basicRange: { min: 1, max: 1 },
+        signatureMove: {
+          name: 'Kamehameha Blast',
+          type: 'aoe',
+          cost: 4,
+          rangeMin: 5, rangeMax: 9,
+          baseDamage: 25
+        }
+      },
+      'enemy-1': {
+        id: 'enemy-1',
+        name: 'Goblin Scout',
+        universe: 'Dungeon Depths',
+        type: 'enemy',
+        avatarUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150',
+        r: 4, c: 6,
+        maxHp: 35, currentHp: 35,
+        energy: 10, maxEnergy: 10,
+        hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+        stats: { hp: 3, atk: 8, pDef: 2, mDef: 1, move: 5, jump: 1, intelligence: 1, luck: 2, accuracy: 2, speed: 9 },
+        basicRange: { min: 1, max: 1 },
+        signatureMove: null
+      }
+    };
+
+    // 5 Battlefield Layout Data Presets
+    const PRESETS = {
+      plains: {
+        size: 10,
+        bgClass: 'bg-map-plains',
+        title: '🌾 Open Plains (10x10 Flat)',
+        desc: 'Wide open grass meadow with NO obstacles, NO walls, and flat ground. Pure strategic positioning and range kite.',
+        player: { r: 5, c: 2 },
+        enemy: { r: 5, c: 7 },
+        map: Array.from({ length: 10 }, () => Array(10).fill({ type: 'empty', elevation: 0 }))
+      },
+      mountain: {
+        size: 10,
+        bgClass: 'bg-map-mountain',
+        title: '⛰️ Mountainous Region (10x10 — Scalable Spires)',
+        desc: 'Rugged terrain with scalable rock spires (H1, H2, H3). Scaling spires grants +1 Max Attack Range per height level! Requires Jump to climb.',
+        player: { r: 4, c: 2 },
+        enemy: { r: 4, c: 7 },
+        map: [
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 3 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 3 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 3 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 3 }, { type: 'empty', elevation: 1 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }]
+        ]
+      },
+      dungeon: {
+        size: 10,
+        bgClass: 'bg-map-dungeon',
+        title: '🏰 Standard Dungeon Room (10x10)',
+        desc: 'Ancient stone dungeon with 🧱 Breakable Walls (15 HP, 1 Main Action to smash) and ⚠️ Floor Traps (-5 HP damage when stepped on).',
+        player: { r: 2, c: 2 },
+        enemy: { r: 4, c: 6 },
+        map: [
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 1 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 2 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }]
+        ]
+      },
+      forest: {
+        size: 6,
+        bgClass: 'bg-map-forest',
+        title: '🗝️ Small Dungeon / Forest Ruins (6x6 Cramped)',
+        desc: 'Tight claustrophobic 6x6 arena with limited movement space, breakable walls, and corner traps.',
+        player: { r: 1, c: 1 },
+        enemy: { r: 4, c: 4 },
+        map: [
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 1 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 1 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'trap', triggered: false }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'wall', hp: 15, maxHp: 15 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }]
+        ]
+      },
+      boss: {
+        size: 8,
+        bgClass: 'bg-map-boss',
+        title: '💀 Boss Chamber (8x8 — Pillars for Cover)',
+        desc: 'Obsidian arena with 🏛️ Indestructible Stone Pillars. Stand directly in the green shadow behind a pillar when the Boss unleashes Unblockable Cosmic Annihilation!',
+        player: { r: 6, c: 2 },
+        enemy: { r: 1, c: 4 },
+        map: [
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'pillar' }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'pillar' }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'pillar' }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'pillar' }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }],
+          [{ type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }, { type: 'empty', elevation: 0 }]
+        ]
+      }
+    };
+
+    let activeMap = JSON.parse(JSON.stringify(PRESETS['dungeon'].map));
+
+    // --- BROADCAST CHANNEL MULTIPLAYER SYNC ---
+    const channel = new BroadcastChannel('dnd2_multiverse_sync');
+    channel.onmessage = (event) => {
+      const msg = event.data;
+      if (msg.type === 'STATE_SYNC') {
+        units = msg.units;
+        activeMap = msg.activeMap;
+        roundNumber = msg.roundNumber;
+        turnIndex = msg.turnIndex;
+        turnOrder = msg.turnOrder;
+        selectedUnitId = msg.selectedUnitId;
+        renderAll();
+        addCombatLog(`[Sync] Updated state from other tab!`, 'system');
+      }
+    };
+
+    function broadcastState() {
+      channel.postMessage({
+        type: 'STATE_SYNC',
+        units,
+        activeMap,
+        roundNumber,
+        turnIndex,
+        turnOrder,
+        selectedUnitId
+      });
+    }
+
+    // --- TABS & ROLE MANAGEMENT ---
+    function switchTab(tabId) {
+      currentTab = tabId;
+      document.getElementById('view-combat').classList.add('hidden');
+      document.getElementById('view-creator').classList.add('hidden');
+      document.getElementById('view-dm').classList.add('hidden');
+
+      const inactiveClass = "px-4 py-2 text-xs font-bold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition";
+      const activeClass = "px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black shadow-lg shadow-amber-500/20 transition";
+
+      document.getElementById('tab-combat').className = inactiveClass;
+      document.getElementById('tab-creator').className = inactiveClass;
+      document.getElementById('tab-dm').className = inactiveClass;
+
+      document.getElementById('view-' + tabId).classList.remove('hidden');
+      document.getElementById('tab-' + tabId).className = activeClass;
+    }
+
+    function changeRole(newRole) {
+      currentRole = newRole;
+      const badge = document.getElementById('current-role-badge');
+      if (newRole === 'dm') {
+        badge.textContent = "Dungeon Master (Host)";
+        badge.className = "text-emerald-400 font-semibold";
+        addCombatLog("Switched to Dungeon Master mode. You can command all units.", "system");
+      } else {
+        badge.textContent = "Player: " + (units['player-1'] ? units['player-1'].name : 'Hero');
+        badge.className = "text-amber-400 font-semibold";
+        selectedUnitId = 'player-1';
+        addCombatLog(`Switched to Player mode. Controlling your character: ${units['player-1'].name}.`, "system");
+      }
+      renderAll();
+    }
+
+    function copyLobbyLink() {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Lobby Link copied to clipboard! Open in another browser tab to simulate DM and Player playing together!");
+    }
+
+    // --- PRESET SWITCHING ---
+    function loadPreset(name) {
+      currentPreset = name;
+      const p = PRESETS[name];
+      gridSize = p.size;
+      activeMap = JSON.parse(JSON.stringify(p.map));
+
+      // Reposition units
+      if (units['player-1']) {
+        units['player-1'].r = p.player.r;
+        units['player-1'].c = p.player.c;
+      }
+      if (units['enemy-1']) {
+        units['enemy-1'].r = p.enemy.r;
+        units['enemy-1'].c = p.enemy.c;
+      }
+
+      // Update preset buttons styling
+      ['plains', 'mountain', 'dungeon', 'forest', 'boss'].forEach(id => {
+        const btn = document.getElementById('btn-' + id);
+        if (btn) {
+          if (id === name) {
+            btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black shadow transition";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+          }
+        }
+      });
+
+      // Update Title & Background
+      document.getElementById('map-title').textContent = p.title;
+      document.getElementById('map-desc').textContent = p.desc;
+      
+      const wrapper = document.getElementById('battle-grid-wrapper');
+      wrapper.className = `relative rounded-xl overflow-hidden shadow-inner ${p.bgClass}`;
+
+      document.getElementById('boss-unblockable-box').style.display = (name === 'boss') ? 'block' : 'none';
+
+      activeAction = null;
+      addCombatLog(`Loaded Battlefield Preset: ${p.title}`, 'system');
+      renderAll();
+      broadcastState();
+    }
+
+    // --- COMBAT INITIATIVE & TURNS ---
+    function startCombat() {
+      // Sort units by Speed descending
+      turnOrder = Object.keys(units)
+        .filter(id => units[id].currentHp > 0)
+        .sort((a, b) => units[b].stats.speed - units[a].stats.speed);
+
+      roundNumber = 1;
+      turnIndex = 0;
+      selectedUnitId = turnOrder[0] || 'player-1';
+
+      // Reset turn actions & refresh energy
+      Object.values(units).forEach(u => {
+        u.hasMoved = false;
+        u.hasActed = false;
+        u.hasMinor = false;
+        u.isGuarding = false;
+        u.energy = Math.min(u.maxEnergy, u.energy + 3);
+      });
+
+      addCombatLog(`⚡ Initiative rolled! Turn Order: ${turnOrder.map(id => units[id].name + ' (Spd ' + units[id].stats.speed + ')').join(' ➔ ')}`, 'system');
+      renderAll();
+      broadcastState();
+    }
+
+    function nextTurn() {
+      if (turnOrder.length === 0) startCombat();
+
+      turnIndex++;
+      if (turnIndex >= turnOrder.length) {
+        turnIndex = 0;
+        roundNumber++;
+        addCombatLog(`🔔 --- ROUND ${roundNumber} BEGINS! ---`, 'system');
+        // Refresh round actions
+        Object.values(units).forEach(u => {
+          u.hasMoved = false;
+          u.hasActed = false;
+          u.hasMinor = false;
+          u.isGuarding = false;
+          u.energy = Math.min(u.maxEnergy, u.energy + 3);
+        });
+      }
+
+      selectedUnitId = turnOrder[turnIndex];
+      const activeUnit = units[selectedUnitId];
+      if (activeUnit) {
+        addCombatLog(`▶️ It is now ${activeUnit.name}'s turn! (HP: ${activeUnit.currentHp}/${activeUnit.maxHp})`, 'turn');
+      }
+
+      activeAction = null;
+      renderAll();
+      broadcastState();
+    }
+
+    function resetCombat() {
+      Object.values(units).forEach(u => {
+        u.currentHp = u.maxHp;
+        u.energy = u.maxEnergy;
+        u.hasMoved = false;
+        u.hasActed = false;
+        u.hasMinor = false;
+        u.isGuarding = false;
+      });
+      loadPreset(currentPreset);
+      addCombatLog("Combat encounters reset to full health and initial positions.", "system");
+    }
+
+    // --- REACHABLE MOVEMENT CALCULATION (BFS) ---
+    function getReachableTiles(unit) {
+      if (!unit || unit.hasMoved) return [];
+      const reachable = [];
+      const queue = [{ r: unit.r, c: unit.c, cost: 0 }];
+      const visited = new Set();
+      visited.add(`${unit.r},${unit.c}`);
+
+      while (queue.length > 0) {
+        const curr = queue.shift();
+        reachable.push({ r: curr.r, c: curr.c, cost: curr.cost });
+
+        if (curr.cost >= unit.stats.move) continue;
+
+        const dirs = [
+          { dr: -1, dc: 0 },
+          { dr: 1, dc: 0 },
+          { dr: 0, dc: -1 },
+          { dr: 0, dc: 1 }
+        ];
+
+        for (const d of dirs) {
+          const nr = curr.r + d.dr;
+          const nc = curr.c + d.dc;
+          const key = `${nr},${nc}`;
+
+          if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && !visited.has(key)) {
+            const tile = activeMap[nr][nc];
+            // Obstacle check
+            if (tile.type === 'wall' && tile.hp > 0) continue;
+            if (tile.type === 'pillar') continue;
+
+            // Unit blocking check (cannot walk through other units)
+            const occupant = Object.values(units).find(u => u.r === nr && u.c === nc && u.currentHp > 0);
+            if (occupant && occupant.id !== unit.id) continue;
+
+            // Jump / Elevation check
+            const currElev = activeMap[curr.r][curr.c].elevation || 0;
+            const nextElev = tile.elevation || 0;
+            if (nextElev - currElev > unit.stats.jump) continue; // Height too tall to scale!
+
+            visited.add(key);
+            queue.push({ r: nr, c: nc, cost: curr.cost + 1 });
+          }
+        }
+      }
+      return reachable;
+    }
+
+    // --- RANGE & DISTANCE HELPERS ---
+    function getDistance(r1, c1, r2, c2) {
+      // Manhattan distance
+      return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+    }
+
+    function isTileInRange(sourceR, sourceC, targetR, targetC, rangeObj) {
+      const dist = getDistance(sourceR, sourceC, targetR, targetC);
+      return dist >= rangeObj.min && dist <= rangeObj.max;
+    }
+
+    // --- RENDERING TACTICAL GRID ---
+    function renderGrid() {
+      const grid = document.getElementById('battle-grid');
+      grid.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+      grid.innerHTML = '';
+
+      const selUnit = units[selectedUnitId];
+      const reachableTiles = (selUnit && !activeAction && (!selUnit.hasMoved || currentRole === 'dm')) ? getReachableTiles(selUnit) : [];
+      const reachableMap = new Map(reachableTiles.map(t => [`${t.r},${t.c}`, t.cost]));
+
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const tile = activeMap[r][c];
+          const tileDiv = document.createElement('div');
+          tileDiv.className = `grid-tile relative border border-slate-900/60 flex items-center justify-center cursor-pointer select-none transition-all`;
+
+          // Elevation badge
+          if (tile.elevation && tile.elevation > 0) {
+            const elevBadge = document.createElement('span');
+            elevBadge.className = "absolute top-0.5 left-0.5 text-[9px] font-black font-mono px-1 rounded bg-amber-500/80 text-black";
+            elevBadge.textContent = `H${tile.elevation}`;
+            tileDiv.appendChild(elevBadge);
+          }
+
+          // Obstacles rendering
+          if (tile.type === 'wall' && tile.hp > 0) {
+            tileDiv.classList.add('bg-stone-900/90', 'border-amber-600/80');
+            const wallContent = document.createElement('div');
+            wallContent.className = "text-center";
+            wallContent.innerHTML = `<span class="text-xs">🧱</span><div class="text-[8px] text-amber-300 font-mono">${tile.hp}HP</div>`;
+            tileDiv.appendChild(wallContent);
+          } else if (tile.type === 'pillar') {
+            tileDiv.classList.add('bg-slate-900/90', 'border-cyan-400');
+            tileDiv.innerHTML = `<span class="text-sm">🏛️</span>`;
+          } else if (tile.type === 'trap') {
+            tileDiv.classList.add(tile.triggered ? 'bg-red-950/40' : 'bg-transparent');
+            if (tile.triggered) {
+              tileDiv.innerHTML = `<span class="text-xs">🩸</span>`;
+            } else if (currentRole === 'dm') {
+              // DM sees hidden trap!
+              tileDiv.innerHTML = `<span class="text-xs opacity-50">⚠️</span>`;
+            }
+          }
+
+          // Reachable movement highlight
+          if (reachableMap.has(`${r},${c}`) && !(selUnit && selUnit.r === r && selUnit.c === c)) {
+            tileDiv.classList.add('bg-cyan-500/30', 'hover:bg-cyan-400/50', 'border-cyan-300');
+            const cost = reachableMap.get(`${r},${c}`);
+            const costSpan = document.createElement('span');
+            costSpan.className = "absolute bottom-0.5 right-1 text-[9px] font-mono text-cyan-200 font-bold";
+            costSpan.textContent = cost;
+            tileDiv.appendChild(costSpan);
+          }
+
+          // Targeting highlight (Basic strike or 3x3 AoE)
+          if (activeAction && selUnit) {
+            const dist = getDistance(selUnit.r, selUnit.c, r, c);
+            const range = activeAction === 'basic' ? selUnit.basicRange : { min: selUnit.signatureMove.rangeMin, max: selUnit.signatureMove.rangeMax };
+
+            if (dist >= range.min && dist <= range.max) {
+              // Valid range band!
+              tileDiv.classList.add('bg-amber-500/25', 'border-amber-400/60');
+            } else if (range.min > 1 && dist < range.min && dist > 0) {
+              // Dead Zone (<5)
+              tileDiv.classList.add('bg-red-900/20');
+            }
+          }
+
+          // Combatant token
+          const unit = Object.values(units).find(u => u.r === r && u.c === c && u.currentHp > 0);
+          if (unit) {
+            const token = document.createElement('div');
+            const isSelected = (unit.id === selectedUnitId);
+            token.className = `w-10 h-10 rounded-full border-2 ${isSelected ? 'border-amber-400 pulse-selected z-20' : (unit.type === 'player' ? 'border-cyan-400' : 'border-red-500')} overflow-hidden relative shadow-lg flex items-center justify-center bg-black`;
+            token.innerHTML = `<img src="${unit.avatarUrl}" class="w-full h-full object-cover" />`;
+            
+            // HP Mini bar
+            const miniHp = document.createElement('div');
+            miniHp.className = "absolute -bottom-1 inset-x-1 h-1 bg-slate-900 rounded-full overflow-hidden";
+            const hpPct = Math.max(0, Math.min(100, (unit.currentHp / unit.maxHp) * 100));
+            miniHp.innerHTML = `<div class="h-full ${unit.type === 'player' ? 'bg-emerald-400' : 'bg-red-500'}" style="width: ${hpPct}%"></div>`;
+            token.appendChild(miniHp);
+
+            tileDiv.appendChild(token);
+          }
+
+          // Click handler
+          tileDiv.onclick = () => onTileClick(r, c);
+          grid.appendChild(tileDiv);
+        }
+      }
+    }
+
+    // --- TILE CLICK INTERACTION ---
+    function onTileClick(r, c) {
+      const clickedUnit = Object.values(units).find(u => u.r === r && u.c === c && u.currentHp > 0);
+      const selUnit = units[selectedUnitId];
+
+      // If in Targeting mode
+      if (activeAction && selUnit) {
+        executeActionOnTile(r, c);
+        return;
+      }
+
+      // If clicking a unit, select it
+      if (clickedUnit) {
+        if (currentRole === 'player' && clickedUnit.type === 'enemy') {
+          addCombatLog(`Targeted enemy: ${clickedUnit.name} (${clickedUnit.currentHp}/${clickedUnit.maxHp} HP). Choose an attack!`, 'system');
+        } else {
+          selectedUnitId = clickedUnit.id;
+          activeAction = null;
+          addCombatLog(`Selected: ${clickedUnit.name}`, 'system');
+        }
+        renderAll();
+        return;
+      }
+
+      // If clicking an empty space while a unit is selected -> MOVE!
+      if (selUnit) {
+        const reachable = getReachableTiles(selUnit);
+        const canReach = reachable.some(t => t.r === r && t.c === c);
+
+        if (canReach || currentRole === 'dm') {
+          // Perform Move
+          selUnit.r = r;
+          selUnit.c = c;
+          selUnit.hasMoved = true;
+          addCombatLog(`🚶 ${selUnit.name} moved to (${r}, ${c}).`, 'move');
+
+          // Check if stepped on a trap!
+          const tile = activeMap[r][c];
+          if (tile.type === 'trap' && !tile.triggered) {
+            tile.triggered = true;
+            selUnit.currentHp = Math.max(0, selUnit.currentHp - 5);
+            addCombatLog(`⚠️ SNAP! ${selUnit.name} triggered a floor trap! Took 5 physical damage!`, 'trap');
+            if (selUnit.currentHp <= 0) {
+              addCombatLog(`💀 ${selUnit.name} was downed by a trap!`, 'damage');
+            }
+          }
+
+          renderAll();
+          broadcastState();
+        } else {
+          addCombatLog("Out of movement range or blocked by obstacle/elevation!", "system");
+        }
+      }
+    }
+
+    // --- COMBAT ACTIONS EXECUTION ---
+    function selectAction(actionType) {
+      const selUnit = units[selectedUnitId];
+      if (!selUnit) return;
+
+      if (selUnit.hasActed && currentRole !== 'dm') {
+        alert("Main Action already spent this turn!");
+        return;
+      }
+
+      if (actionType === 'signature' && selUnit.energy < selUnit.signatureMove.cost && currentRole !== 'dm') {
+        alert(`Not enough Energy! Requires ${selUnit.signatureMove.cost} Energy pips.`);
+        return;
+      }
+
+      activeAction = actionType;
+      const banner = document.getElementById('mode-banner');
+      if (actionType === 'basic') {
+        banner.textContent = `🎯 BASIC ATTACK: Click an enemy in range (${selUnit.basicRange.min}-${selUnit.basicRange.max} tiles).`;
+      } else if (actionType === 'signature') {
+        banner.textContent = `💥 SIGNATURE MOVE (3x3 AoE): Click the center target tile between ${selUnit.signatureMove.rangeMin}-${selUnit.signatureMove.rangeMax} tiles away!`;
+      } else if (actionType === 'break-wall') {
+        banner.textContent = `🧱 SMASH WALL: Click an adjacent cracked stone wall (1 block away) to break it!`;
+      }
+      renderGrid();
+    }
+
+    function executeActionOnTile(r, c) {
+      const selUnit = units[selectedUnitId];
+      if (!selUnit) return;
+
+      if (activeAction === 'break-wall') {
+        const dist = getDistance(selUnit.r, selUnit.c, r, c);
+        const tile = activeMap[r][c];
+        if (dist === 1 && tile.type === 'wall' && tile.hp > 0) {
+          tile.hp = 0;
+          selUnit.hasActed = true;
+          addCombatLog(`🔨 CRACK! ${selUnit.name} used 1 Main Action to smash down the stone wall! Path is open!`, 'wall');
+          activeAction = null;
+          renderAll();
+          broadcastState();
+        } else {
+          alert("Must click an adjacent breakable wall (distance 1)!");
+        }
+        return;
+      }
+
+      const targetUnit = Object.values(units).find(u => u.r === r && u.c === c && u.currentHp > 0);
+
+      if (activeAction === 'basic') {
+        if (!targetUnit) {
+          alert("Click an enemy unit to strike!");
+          return;
+        }
+        const dist = getDistance(selUnit.r, selUnit.c, r, c);
+        if (dist < selUnit.basicRange.min || dist > selUnit.basicRange.max) {
+          alert(`Target is out of range! Basic range is ${selUnit.basicRange.min}-${selUnit.basicRange.max} tiles.`);
+          return;
+        }
+
+        // Calculate damage: (ATK + D20 roll) - DEF
+        const roll = Math.floor(Math.random() * 20) + 1;
+        const rawDmg = selUnit.stats.atk + Math.floor(roll / 4);
+        const def = targetUnit.isGuarding ? Math.floor(targetUnit.stats.pDef * 1.5) : targetUnit.stats.pDef;
+        const finalDmg = Math.max(1, rawDmg - def);
+
+        targetUnit.currentHp = Math.max(0, targetUnit.currentHp - finalDmg);
+        selUnit.hasActed = true;
+        addCombatLog(`🗡️ ${selUnit.name} strikes ${targetUnit.name} for ${finalDmg} damage! (Def mitigated ${def}). HP: ${targetUnit.currentHp}/${targetUnit.maxHp}`, 'attack');
+        
+        if (targetUnit.currentHp <= 0) {
+          addCombatLog(`💀 ${targetUnit.name} has fallen in battle!`, 'damage');
+        }
+
+        activeAction = null;
+        renderAll();
+        broadcastState();
+      }
+
+      if (activeAction === 'signature') {
+        const move = selUnit.signatureMove;
+        const dist = getDistance(selUnit.r, selUnit.c, r, c);
+        if (dist < move.rangeMin || dist > move.rangeMax) {
+          alert(`Target tile is outside the ${move.rangeMin}-${move.rangeMax} Range Band!`);
+          return;
+        }
+
+        // Deduct Energy
+        selUnit.energy = Math.max(0, selUnit.energy - move.cost);
+        selUnit.hasActed = true;
+
+        addCombatLog(`💥 ${selUnit.name} unleashes ${move.name} (3x3 AoE) centered at (${r}, ${c})!`, 'attack');
+
+        // Check all 9 tiles in 3x3 square
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const tr = r + dr;
+            const tc = c + dc;
+            if (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize) {
+              const victim = Object.values(units).find(u => u.r === tr && u.c === tc && u.currentHp > 0);
+              if (victim) {
+                const isCenter = (dr === 0 && dc === 0);
+                const rawDmg = isCenter ? move.baseDamage : Math.floor(move.baseDamage * 0.5);
+                const def = victim.stats.mDef;
+                const finalDmg = Math.max(1, rawDmg - def);
+                victim.currentHp = Math.max(0, victim.currentHp - finalDmg);
+                addCombatLog(`  💥 ${isCenter ? 'DIRECT HIT' : 'SPLASH'} on ${victim.name}! Took ${finalDmg} damage! (${victim.currentHp}/${victim.maxHp} HP)`, 'damage');
+                if (victim.currentHp <= 0) {
+                  addCombatLog(`💀 ${victim.name} was obliterated by ${move.name}!`, 'damage');
+                }
+              }
+            }
+          }
+        }
+
+        activeAction = null;
+        renderAll();
+        broadcastState();
+      }
+    }
+
+    function activateGuard() {
+      const selUnit = units[selectedUnitId];
+      if (!selUnit) return;
+      selUnit.isGuarding = true;
+      selUnit.hasMinor = true;
+      addCombatLog(`🛡️ ${selUnit.name} enters Defensive Guard stance! (+50% P.DEF & M.DEF until next turn).`, 'system');
+      renderAll();
+      broadcastState();
+    }
+
+    // --- BOSS UNBLOCKABLE BLAST & COVER MECHANIC ---
+    function triggerBossBlast() {
+      const boss = Object.values(units).find(u => u.name.includes('Boss') || u.id === 'enemy-1');
+      if (!boss) return;
+
+      addCombatLog("🚨 THE BOSS FIRES UNBLOCKABLE COSMIC ANNIHILATION!", "attack");
+
+      // In Boss Room, players behind a pillar (row 3, 4, 7 depending on pillar at row 2 and 5) get FULL COVER!
+      Object.values(units).filter(u => u.type === 'player' && u.currentHp > 0).forEach(p => {
+        // Simple pillar cover check: pillar at r:2 c:2 and r:5 c:2
+        const isCovered = (p.r > 2 && (p.c === 2 || p.c === 5));
+        if (isCovered) {
+          addCombatLog(`🏛️ SAFE! ${p.name} was hidden behind a cover pillar! The Unblockable beam shattered against the pillar! 0 Damage taken!`, 'heal');
+        } else {
+          p.currentHp = Math.max(0, p.currentHp - 45);
+          addCombatLog(`🔥 HIT! ${p.name} was caught out in the open by the Unblockable beam! Took 45 cosmic damage! (${p.currentHp}/${p.maxHp} HP)`, 'damage');
+        }
+      });
+
+      renderAll();
+      broadcastState();
+    }
+
+    // --- HUD & TIMELINE RENDERING ---
+    function renderHUD() {
+      const selUnit = units[selectedUnitId] || units['player-1'];
+      if (!selUnit) return;
+
+      document.getElementById('hud-name').textContent = selUnit.name;
+      document.getElementById('hud-universe').textContent = `Universe: ${selUnit.universe || 'Multiverse'} • Lv. 1`;
+      document.getElementById('hud-avatar').src = selUnit.avatarUrl;
+      document.getElementById('hud-type-badge').textContent = selUnit.type.toUpperCase();
+      document.getElementById('hud-type-badge').className = `absolute -bottom-2 -right-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${selUnit.type === 'player' ? 'bg-amber-500 text-black' : 'bg-red-600 text-white'} uppercase`;
+
+      // HP Bar
+      const hpPct = Math.max(0, Math.min(100, (selUnit.currentHp / selUnit.maxHp) * 100));
+      document.getElementById('hud-hp-text').textContent = `${selUnit.currentHp} / ${selUnit.maxHp} HP`;
+      document.getElementById('hud-hp-bar').style.width = `${hpPct}%`;
+
+      // 10 Energy Pips
+      document.getElementById('hud-energy-text').textContent = `${selUnit.energy} / ${selUnit.maxEnergy} Pips`;
+      const pipsContainer = document.getElementById('energy-pips-container');
+      pipsContainer.innerHTML = '';
+      for (let i = 1; i <= selUnit.maxEnergy; i++) {
+        const pip = document.createElement('div');
+        pip.className = `h-3 rounded-sm transition-all ${i <= selUnit.energy ? 'bg-cyan-400 shadow-md shadow-cyan-400/50' : 'bg-slate-800'}`;
+        pipsContainer.appendChild(pip);
+      }
+
+      // Action Economy Badges
+      const mainText = document.getElementById('text-main-action');
+      mainText.textContent = selUnit.hasActed ? "SPENT" : "READY";
+      mainText.className = selUnit.hasActed ? "font-bold text-slate-500" : "font-bold text-emerald-400";
+
+      const minorText = document.getElementById('text-minor-action');
+      minorText.textContent = selUnit.hasMinor ? "SPENT" : "READY";
+      minorText.className = selUnit.hasMinor ? "font-bold text-slate-500" : "font-bold text-emerald-400";
+
+      // Stats
+      document.getElementById('hud-atk').textContent = selUnit.stats.atk;
+      document.getElementById('hud-pdef').textContent = selUnit.stats.pDef;
+      document.getElementById('hud-mdef').textContent = selUnit.stats.mDef;
+      document.getElementById('hud-move').textContent = selUnit.stats.move;
+      document.getElementById('hud-jump').textContent = selUnit.stats.jump;
+      document.getElementById('hud-speed').textContent = selUnit.stats.speed;
+
+      // Range text
+      document.getElementById('hud-basic-range').textContent = selUnit.basicRange.min === 1 && selUnit.basicRange.max === 1 ? '1 (Melee)' : `${selUnit.basicRange.min}-${selUnit.basicRange.max}`;
+      
+      if (selUnit.signatureMove) {
+        document.getElementById('btn-special-move').style.display = 'flex';
+        document.getElementById('hud-move-name').textContent = selUnit.signatureMove.name;
+        document.getElementById('hud-move-range').textContent = `${selUnit.signatureMove.rangeMin}-${selUnit.signatureMove.rangeMax}`;
+      } else {
+        document.getElementById('btn-special-move').style.display = 'none';
+      }
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('timeline-units');
+      container.innerHTML = '';
+      document.getElementById('round-badge').textContent = `Round ${roundNumber}`;
+
+      const activeOrder = turnOrder.length > 0 ? turnOrder : Object.keys(units);
+      activeOrder.forEach((id, idx) => {
+        const u = units[id];
+        if (!u) return;
+        const token = document.createElement('div');
+        const isCurrent = (idx === turnIndex);
+        token.className = `flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs cursor-pointer ${isCurrent ? 'bg-amber-500 text-black font-bold border-amber-300 shadow-md' : 'bg-slate-900 text-slate-300 border-slate-800'}`;
+        token.innerHTML = `<img src="${u.avatarUrl}" class="w-5 h-5 rounded-full object-cover" /><span>${u.name}</span><span class="font-mono text-[10px] opacity-75">(${u.stats.speed})</span>`;
+        token.onclick = () => { selectedUnitId = u.id; renderAll(); };
+        container.appendChild(token);
+      });
+    }
+
+    function addCombatLog(msg, type = 'system') {
+      const log = document.getElementById('combat-log');
+      const entry = document.createElement('div');
+      if (type === 'attack') entry.className = "text-amber-300 font-semibold";
+      else if (type === 'damage') entry.className = "text-rose-400";
+      else if (type === 'heal') entry.className = "text-emerald-400 font-bold";
+      else if (type === 'wall') entry.className = "text-amber-400 font-bold";
+      else if (type === 'trap') entry.className = "text-red-400 font-bold";
+      else if (type === 'turn') entry.className = "text-cyan-300 font-bold";
+      else entry.className = "text-slate-400";
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      entry.textContent = `[${time}] ${msg}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // --- CHARACTER CREATOR LOGIC ---
+    let creatorAllocated = { hp: 0, atk: 0, pDef: 0, mDef: 0, move: 0, jump: 0, intelligence: 0, accuracy: 0, speed: 0 };
+    let creatorBaseStats = { hp: 20, atk: 1, pDef: 1, mDef: 1, move: 5, jump: 0, intelligence: 1, accuracy: 1, speed: 1 };
+    let availableSkillPoints = 5;
+    let uploadedAvatarUrl = 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=200';
+
+    function handleAvatarUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          uploadedAvatarUrl = e.target.result;
+          document.getElementById('creator-avatar-preview').src = uploadedAvatarUrl;
+          addCombatLog("Character portrait loaded successfully!", "system");
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function toggleRangeInputs(val) {
+      document.getElementById('band-inputs-container').classList.toggle('hidden', val !== 'band');
+    }
+
+    function toggleAoEPreview(val) {
+      document.getElementById('aoe-preview-box').style.display = (val === 'aoe') ? 'block' : 'none';
+    }
+
+    function adjustStat(statKey, delta) {
+      if (delta > 0 && availableSkillPoints <= 0) {
+        alert("No skill points remaining!");
+        return;
+      }
+      if (delta < 0 && creatorAllocated[statKey] <= 0) {
+        return; // Cannot go below base
+      }
+
+      // Max stat constraints
+      if (delta > 0) {
+        if (statKey === 'move' && creatorBaseStats.move + creatorAllocated.move >= 10) return;
+        if (statKey === 'jump' && creatorBaseStats.jump + creatorAllocated.jump >= 5) return;
+        if (statKey === 'accuracy' && creatorBaseStats.accuracy + creatorAllocated.accuracy >= 5) return;
+      }
+
+      creatorAllocated[statKey] += delta;
+      availableSkillPoints -= delta;
+
+      document.getElementById('creator-sp').textContent = availableSkillPoints;
+      
+      const totalVal = creatorBaseStats[statKey] + (statKey === 'hp' ? creatorAllocated[statKey] * 5 : creatorAllocated[statKey]);
+      document.getElementById('stat-' + statKey).textContent = totalVal;
+    }
+
+    function saveAndSpawnCharacter() {
+      const name = document.getElementById('creator-name').value.trim() || 'Custom Hero';
+      const universe = document.getElementById('creator-universe').value.trim() || 'Custom';
+      const rangeType = document.querySelector('input[name="range-profile"]:checked').value;
+      const minRange = rangeType === '1' ? 1 : parseInt(document.getElementById('creator-range-min').value) || 5;
+      const maxRange = rangeType === '1' ? 1 : parseInt(document.getElementById('creator-range-max').value) || 9;
+
+      const moveName = document.getElementById('creator-move-name').value.trim() || 'Signature Strike';
+      const moveType = document.getElementById('creator-move-targeting').value;
+      const moveCost = parseInt(document.getElementById('creator-move-cost').value) || 4;
+      const moveRangeRaw = document.getElementById('creator-move-range').value.trim() || '5-9';
+      const [mMin, mMax] = moveRangeRaw.includes('-') ? moveRangeRaw.split('-').map(Number) : [parseInt(moveRangeRaw) || 1, parseInt(moveRangeRaw) || 1];
+
+      const finalHp = creatorBaseStats.hp + (creatorAllocated.hp * 5);
+
+      units['player-1'] = {
+        id: 'player-1',
+        name: name,
+        universe: universe,
+        type: 'player',
+        avatarUrl: uploadedAvatarUrl,
+        r: 2, c: 2,
+        maxHp: finalHp, currentHp: finalHp,
+        energy: 10, maxEnergy: 10,
+        hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+        stats: {
+          hp: creatorAllocated.hp,
+          atk: creatorBaseStats.atk + creatorAllocated.atk,
+          pDef: creatorBaseStats.pDef + creatorAllocated.pDef,
+          mDef: creatorBaseStats.mDef + creatorAllocated.mDef,
+          move: creatorBaseStats.move + creatorAllocated.move,
+          jump: creatorBaseStats.jump + creatorAllocated.jump,
+          intelligence: creatorBaseStats.intelligence + creatorAllocated.intelligence,
+          luck: 1,
+          accuracy: creatorBaseStats.accuracy + creatorAllocated.accuracy,
+          speed: creatorBaseStats.speed + creatorAllocated.speed
+        },
+        basicRange: { min: minRange, max: maxRange },
+        signatureMove: {
+          name: moveName,
+          type: moveType,
+          cost: moveCost,
+          rangeMin: mMin, rangeMax: mMax,
+          baseDamage: 25
+        }
+      };
+
+      selectedUnitId = 'player-1';
+      addCombatLog(`✨ Character created: ${name} (${universe})! Placed on tactical grid!`, 'heal');
+      switchTab('combat');
+      renderAll();
+      broadcastState();
+    }
+
+    // --- DM ENCOUNTER CONTROLS ---
+    let customEnemyAvatarUrl = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=120';
+
+    function handleEnemyAvatarUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          customEnemyAvatarUrl = e.target.result;
+          document.getElementById('enemy-avatar-preview').src = customEnemyAvatarUrl;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function spawnPresetEnemy(type) {
+      const newId = 'enemy-' + (Object.keys(units).length + 1);
+      if (type === 'goblin') {
+        units[newId] = {
+          id: newId,
+          name: 'Goblin Skirmisher',
+          universe: 'Dungeon Depths',
+          type: 'enemy',
+          avatarUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150',
+          r: 3, c: 7,
+          maxHp: 30, currentHp: 30,
+          energy: 10, maxEnergy: 10,
+          hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+          stats: { hp: 2, atk: 8, pDef: 2, mDef: 1, move: 5, jump: 1, intelligence: 1, luck: 2, accuracy: 2, speed: 9 },
+          basicRange: { min: 1, max: 1 },
+          signatureMove: null
+        };
+      } else if (type === 'golem') {
+        units[newId] = {
+          id: newId,
+          name: 'Spire Golem Sniper',
+          universe: 'Ancient Mountain',
+          type: 'enemy',
+          avatarUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150',
+          r: 2, c: 6,
+          maxHp: 45, currentHp: 45,
+          energy: 10, maxEnergy: 10,
+          hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+          stats: { hp: 5, atk: 12, pDef: 6, mDef: 3, move: 3, jump: 2, intelligence: 3, luck: 1, accuracy: 4, speed: 5 },
+          basicRange: { min: 5, max: 9 },
+          signatureMove: null
+        };
+      } else if (type === 'boss') {
+        units[newId] = {
+          id: newId,
+          name: 'Omni-Overlord (Boss)',
+          universe: 'The Void',
+          type: 'enemy',
+          avatarUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150',
+          r: 1, c: 4,
+          maxHp: 150, currentHp: 150,
+          energy: 10, maxEnergy: 10,
+          hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+          stats: { hp: 26, atk: 25, pDef: 8, mDef: 8, move: 4, jump: 3, intelligence: 10, luck: 5, accuracy: 5, speed: 7 },
+          basicRange: { min: 1, max: 3 },
+          signatureMove: {
+            name: 'Cosmic Annihilation',
+            type: 'aoe',
+            cost: 5,
+            rangeMin: 1, rangeMax: 10,
+            baseDamage: 40
+          }
+        };
+      }
+
+      addCombatLog(`👑 DM spawned ${units[newId].name} onto the grid!`, 'system');
+      switchTab('combat');
+      renderAll();
+      broadcastState();
+    }
+
+    function createCustomEnemy() {
+      const name = document.getElementById('custom-enemy-name').value.trim() || 'Custom Monster';
+      const hp = parseInt(document.getElementById('custom-enemy-hp').value) || 40;
+      const atk = parseInt(document.getElementById('custom-enemy-atk').value) || 10;
+      const spd = parseInt(document.getElementById('custom-enemy-speed').value) || 6;
+      const mv = parseInt(document.getElementById('custom-enemy-move').value) || 4;
+      const rngRaw = document.getElementById('custom-enemy-range').value.trim() || '1';
+      const [rMin, rMax] = rngRaw.includes('-') ? rngRaw.split('-').map(Number) : [parseInt(rngRaw) || 1, parseInt(rngRaw) || 1];
+
+      const newId = 'enemy-' + (Object.keys(units).length + 1);
+      units[newId] = {
+        id: newId,
+        name: name,
+        universe: 'Custom Encounters',
+        type: 'enemy',
+        avatarUrl: customEnemyAvatarUrl,
+        r: 3, c: 5,
+        maxHp: hp, currentHp: hp,
+        energy: 10, maxEnergy: 10,
+        hasMoved: false, hasActed: false, hasMinor: false, isGuarding: false,
+        stats: { hp: Math.floor(hp / 5), atk: atk, pDef: 3, mDef: 2, move: mv, jump: 1, intelligence: 3, luck: 1, accuracy: 3, speed: spd },
+        basicRange: { min: rMin, max: rMax },
+        signatureMove: null
+      };
+
+      addCombatLog(`👑 DM created and spawned ${name}!`, 'system');
+      switchTab('combat');
+      renderAll();
+      broadcastState();
+    }
+
+    // --- MAIN RENDER CYCLE ---
+    function renderAll() {
+      renderGrid();
+      renderHUD();
+      renderTimeline();
+    }
+
+    // Initialize application on page load
+    window.onload = function() {
+      loadPreset('dungeon');
+      startCombat();
+    };
+  </script>
+</body>
+</html>
